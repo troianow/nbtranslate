@@ -1,0 +1,29 @@
+package:
+  name: nbtranslate
+  version: 0.0.1
+
+source:
+  git_rev:
+  git_url: https://github.com/troianow/nbtranslate
+
+requirements:
+  build:
+    - python
+    - setuptools
+
+  run:
+    - python
+    - ipython
+    - nbformat
+
+test:
+  requires:
+    - pytest
+  imports:
+    -
+
+about:
+  home: https://github.com/troianow/nbtranslate
+  license: BSD
+  license_family: BSD
+  summary: Tool to convert Jupyter notebooks to python code and back.

@@ -5,11 +5,12 @@ import subprocess
 import tempfile
 import nbformat
 from IPython import display
-from pygments.formatters.html import HtmlFormatter
-from pygments.lexers.python import PythonLexer
+
 
 try:
     import pygments
+    from pygments.formatters.html import HtmlFormatter
+    from pygments.lexers.python import PythonLexer
 except ModuleNotFoundError:
     pygments = None
 
@@ -17,7 +18,6 @@ try:
     import difflib
 except ModuleNotFoundError:
     difflib = None
-
 
 
 DIFFLIB_DIFFERENCE_TYPES = ['ndiff', 'context_diff', 'unified_diff']

@@ -68,8 +68,9 @@ Here are two notebooks (in `resource/example{1,2}.py`) with slightly different c
 
 To compare them, run the following (note that the comparison relies on external modules that must be installed):
 ```python
-import os, nbtemplate
-nbtemplate.compare_notebooks_code(
+import os
+from nbtranslate import core
+core.compare_notebooks_code(
     os.path.join(path_to_repo, 'resources/example1.ipynb'), 
     os.path.join(path_to_repo, 'resources/example2.ipynb'), 
     typ='ndiff'
@@ -81,8 +82,9 @@ Note that all three modes of comparison available in `difflib` (`unified_diff`, 
 
 When using with an external comparison software:
 ```python
-import os, nbtemplate
-nbtemplate.compare_notebooks_code(
+import os
+from nbtranslate import core
+core.compare_notebooks_code(
     os.path.join(path_to_repo, 'resources/example1.ipynb'), 
     os.path.join(path_to_repo, 'resources/example2.ipynb'), 
     external_diff_command='/Applications/Visual Studio Code.app/Contents/MacOS/Electron',
