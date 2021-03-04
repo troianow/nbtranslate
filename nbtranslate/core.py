@@ -51,7 +51,9 @@ class AbstractCell:
 class MarkdownCell(AbstractCell):
     _nb_cell_maker_name_ = 'new_markdown_cell'
     def format_cell(self):
-        return '''"""\n{}\n"""'''.format(self.content)
+        # escaping triple quotes because they're used as boundaries for markdown cells
+        content = self.content.replace('"""', r'\"\"\"')
+        return f'''"""\n{content}\n"""'''
 
 
 class Separator(AbstractCell):
@@ -121,16 +123,23 @@ def _raw_cells_to_cells(raw_cells):
     cells = []
     section = DEFAULT_SECTION
     for c in raw_cells:
+        content = c.content
         if issubclass(c.kind, Separator):
             continue
         if issubclass(c.kind, Section):
             section = c.content
             continue
+        if issubclass(c.kind, MarkdownCell):
+            content = content.replace(r'\"\"\"', '"""')
 
-        cells.append(c.kind(c.content, section))
+        cells.append(c.kind(content, section))
+
+    def to_content(c):
+        content = c.content.strip('\n')
+        return content
 
     # strip line returns and filter out empty cells
-    cells = [type(a)(b, a.section) for a in cells for b in [a.content.strip('\n')] if len(b) > 0]
+    cells = [type(a)(b, a.section) for a in cells for b in [to_content(a)] if b is not None]
     return cells
 
 
@@ -203,6 +212,9 @@ def nb_to_cells(nb):
     cells = []
     for a in nb['cells']:
         section = a['metadata'].get('section', DEFAULT_SECTION)
+        if a['cell_type'] == 'markdown':
+            # TODO: Check this
+            section = section.replace(r'\"\"\"', '"""')
         cell = CELL_TYPE_TO_TYPE[a['cell_type']](a['source'], section)
         cells.append(cell)
     return cells
@@ -281,3 +293,46 @@ def compare_notebooks_code(nb1, nb2, external_diff_command=None, external_diff_a
             DIFFLIB_DIFFERENCE_TYPES)
         for l in getattr(difflib, typ)(nb1_code.split('\n'), nb2_code.split('\n')):
             print(l)
+
+
+def validate_notebook_translation(nb1):
+    """This converts nb1 code, converts it back to a notebook and checks that the two are equivalent, up to
+    empty cells
+
+    :param nb1: notebook to check
+    :return: True if the conversion and back gave the same notebook
+    """
+    code = cells_to_code(nb_to_cells(nb1))
+    nb2 = cells_to_notebook(split_code_to_cells(code))
+
+    cells1 = nb1['cells']
+    cells2 = nb2['cells']
+
+    i = 0
+    j = 0
+    EOF = object()
+
+    while True:
+        if i >= len(cells1) or j >= len(cells2):
+            break
+        c1 = cells1[i] if i < len(cells1) else EOF
+        c2 = cells2[j] if j < len(cells2) else EOF
+        src1 = c1.source.strip()
+        src2 = c2.source.strip()
+        if len(src1) == 0:
+            i += 1
+            continue
+        if len(src2) == 0:
+            j += 1
+            continue
+
+        if src1 == src2:
+            i += 1
+            j += 1
+            continue
+        else:
+            return False
+
+    rem_cells1 = cells1[i:]
+    rem_cells2 = cells2[j:]
+    return True
