@@ -27,6 +27,8 @@ SEPARATOR_COMMENT = '# ' + '-' * PADDING_LENGTH
 SECTION_COMMENT_PATTERN = '# %s {} %s' % (('-' * PADDING_LENGTH,) * 2)
 DEFAULT_SECTION = '__no_section__'
 MD_CELL_PATTERN = '"""(.*?)"""'
+CODE_MAGICS_PATTERN = '^%.+$'
+CODE_MAGICS_MARKER = '# __magic__:'
 
 RawCell = collections.namedtuple('RawCell', 'start end kind content')
 
@@ -41,6 +43,10 @@ class AbstractCell:
     def format_cell(self):
         return self.content
 
+    @classmethod
+    def parse_content(cls, c):
+        return c
+
     def get_cell_maker_name(self):
         if self._nb_cell_maker_name_ is None:
             raise ValueError('This cell is not expected to be added to the notebook: {}'.format(type(self)))
@@ -50,10 +56,14 @@ class AbstractCell:
 
 class MarkdownCell(AbstractCell):
     _nb_cell_maker_name_ = 'new_markdown_cell'
+
     def format_cell(self):
         # escaping triple quotes because they're used as boundaries for markdown cells
         content = self.content.replace('"""', r'\"\"\"')
         return f'''"""\n{content}\n"""'''
+
+    def parse_content(self, c):
+        return c.replace(r'\"\"\"', '"""')
 
 
 class Separator(AbstractCell):
@@ -66,6 +76,27 @@ class Section(AbstractCell):
 
 class CodeCell(AbstractCell):
     _nb_cell_maker_name_ = 'new_code_cell'
+
+    def format_cell(self):
+        result = ''
+        for l in self.content.split('\n'):
+            res = re.match('\s*(%\S+)\s{0,1}.*', l)
+
+            if res is not None:
+                result += CODE_MAGICS_MARKER + l + '\n'
+            else:
+                result += l + '\n'
+        return result
+
+    @classmethod
+    def parse_content(cls, c):
+        result = ''
+        for l in c.split('\n'):
+            if l.startswith(CODE_MAGICS_MARKER):
+                result += l[len(CODE_MAGICS_MARKER):] + '\n'
+            else:
+                result += l + '\n'
+        return result
 
 
 CELL_TYPE_TO_TYPE = {
@@ -103,8 +134,9 @@ def _split_to_raw_cells(code):
         code_cells += [RawCell(0, raw_cells[0].start - 1, CodeCell, code[:raw_cells[0].start - 1])]
     for previous_cell, next_cell in zip(raw_cells[:-1], raw_cells[1:]):
         start = previous_cell.end + 1
-        end = next_cell.start - 1
-        code_cells.append(RawCell(start, end, CodeCell, code[start:end]))
+        end = next_cell.start
+        if start < end:
+            code_cells.append(RawCell(start, end, CodeCell, code[start:end]))
 
     code_cells.append(RawCell(raw_cells[-1].end + 1, len(code) + 1, CodeCell, code[raw_cells[-1].end + 1:]))
 
@@ -130,7 +162,10 @@ def _raw_cells_to_cells(raw_cells):
             section = c.content
             continue
         if issubclass(c.kind, MarkdownCell):
-            content = content.replace(r'\"\"\"', '"""')
+            content = c.kind.parse_content(content)
+
+        if issubclass(c.kind, CodeCell):
+            content = c.kind.parse_content(content)
 
         cells.append(c.kind(content, section))
 
@@ -215,6 +250,7 @@ def nb_to_cells(nb):
         if a['cell_type'] == 'markdown':
             # TODO: Check this
             section = section.replace(r'\"\"\"', '"""')
+
         cell = CELL_TYPE_TO_TYPE[a['cell_type']](a['source'], section)
         cells.append(cell)
     return cells
