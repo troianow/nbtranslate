@@ -62,7 +62,8 @@ class MarkdownCell(AbstractCell):
         content = self.content.replace('"""', r'\"\"\"')
         return f'''"""\n{content}\n"""'''
 
-    def parse_content(self, c):
+    @classmethod
+    def parse_content(cls, c):
         return c.replace(r'\"\"\"', '"""')
 
 
@@ -80,10 +81,11 @@ class CodeCell(AbstractCell):
     def format_cell(self):
         result = ''
         for l in self.content.split('\n'):
-            res = re.match('\s*(%\S+)\s{0,1}.*', l)
+            res = re.match('\s*(%\S+)\s{0,1}(.*)$', l)
 
             if res is not None:
-                result += CODE_MAGICS_MARKER + l + '\n'
+                mgc, expr = res.groups()
+                result += f"{expr}{CODE_MAGICS_MARKER}{mgc}\n"
             else:
                 result += l + '\n'
         return result
@@ -92,10 +94,12 @@ class CodeCell(AbstractCell):
     def parse_content(cls, c):
         result = ''
         for l in c.split('\n'):
-            if l.startswith(CODE_MAGICS_MARKER):
-                result += l[len(CODE_MAGICS_MARKER):] + '\n'
+            res = re.match(f'(.*){re.escape(CODE_MAGICS_MARKER)}(\S+)$', l)
+            if res is not None:
+                expr, mgc = res.groups()
+                result += f'{mgc} {expr}\n'
             else:
-                result += l + '\n'
+                result += f'{l}\n'
         return result
 
 
