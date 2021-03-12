@@ -32,6 +32,7 @@ CODE_MAGICS_MARKER = '# __magic__:'
 
 RawCell = collections.namedtuple('RawCell', 'start end kind content')
 
+# TODO: Add support for RAW cells. Should only be treated like markdown cells (with something identifying them)
 
 class AbstractCell:
     _nb_cell_maker_name_ = None
